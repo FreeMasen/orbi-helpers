@@ -31,7 +31,7 @@ pub async fn get_attached_devices(client: &Client) -> Result<AttachedDevices, Er
         .text()
         .await
         .unwrap();
-    eprintln!("{response_body}");
+    // eprintln!("{response_body}");
     let response: AttachedDevices = serde_json::from_str(&response_body)?;
     Ok(response)
 }
