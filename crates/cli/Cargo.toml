@@ -11,3 +11,4 @@ comfy-table = "6.1"
 env_logger = "0.9"
 lighter-ip-list = { path = "../../" }
 tokio = { workspace = true }
+strum = {version = "0.25", features = ["derive"] }

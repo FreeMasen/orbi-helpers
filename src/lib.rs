@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::collections::HashMap;
 
 use directories::ProjectDirs;
 use reqwest::Client;
@@ -32,31 +32,29 @@ pub async fn get_attached_devices(client: &Client) -> Result<AttachedDevices, Er
         .await
         .unwrap();
     // eprintln!("{response_body}");
-    let response: AttachedDevices = serde_json::from_str(&response_body)?;
+    let mut response: AttachedDevices = serde_json::from_str(&response_body)?;
+    for device in response.devices.iter_mut() {
+        if let Some(mac_override) = config.device_name_overrides.get(&device.mac) {
+            device.name = mac_override.to_string();
+            continue;
+        }
+        if let Some(name_override) = config.device_name_overrides.get(&device.name) {
+            device.name = name_override.to_string();
+            continue;
+        }
+    }
     Ok(response)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttachedDevices {
-    pub satellites: Vec<Satellite>,
+    pub satellites: Vec<Device>,
     pub devices: Vec<Device>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Satellite {
-    mac: String,
-    #[serde(rename = "type")]
-    kind: String,
-    model: String,
-    name: String,
-    ip: Option<IpAddr>,
-    connection_type: String,
-    status: u16,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+// #[serde(deny_unknown_fields)]
 pub struct Device {
     pub mac: String,
     #[serde(rename = "type")]
@@ -67,12 +65,30 @@ pub struct Device {
     pub connection_type: String,
     #[serde(alias = "ConnectedOrbi")]
     pub connected_orbi: String,
+    #[serde(alias = "ConnectedOrbiMAC")]
+    pub connected_orbi_mac: String,
+    pub connection_img: String,
+    pub backhaul_status_style: String,
+    pub backhaul_status: String,
+    pub category: String,
+    pub status: u32,
+    #[serde(alias = "sat_type")]
+    pub sat_type: u32,
+    #[serde(alias = "led_status")]
+    pub led_status: u32,
+    #[serde(alias = "led_brightness")]
+    pub led_brightness: u32,
+    #[serde(alias = "led_sync")]
+    pub led_sync: u32,
+    #[serde(alias = "voice_reg")]
+    pub voice_reg: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub username: String,
     pub password: String,
+    pub device_name_overrides: HashMap<String, String>,
 }
 
 #[derive(Debug, thiserror::Error)]
