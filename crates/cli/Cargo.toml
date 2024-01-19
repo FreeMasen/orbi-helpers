@@ -9,6 +9,6 @@ edition = "2021"
 clap = { version = "4.1", features = ["derive"]}
 comfy-table = "7.1"
 env_logger = "0.10"
-lighter-ip-list = { path = "../../" }
+orbi-helpers = { path = "../../" }
 tokio = { workspace = true }
 strum = {version = "0.25", features = ["derive"] }

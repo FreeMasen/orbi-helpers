@@ -1,5 +1,5 @@
 use clap::Parser;
-use lighter_ip_list::{AttachedDevices, Device};
+use orbi_helpers::{AttachedDevices, Device};
 
 #[derive(Clone, Debug, Parser)]
 pub struct Args {
@@ -19,9 +19,9 @@ enum OutputFormat {
 async fn main() {
     env_logger::init();
     let mut args = Args::parse();
-    let client = lighter_ip_list::get_client();
+    let client = orbi_helpers::get_client();
 
-    let json = lighter_ip_list::get_attached_devices(&client)
+    let json = orbi_helpers::get_attached_devices(&client)
         .await
         .unwrap();
     if args.device_fields.is_empty() {
