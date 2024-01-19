@@ -37,6 +37,7 @@ Additionally a map of mac address/name to an over ride name can also be provided
 username = "..."
 password = "..."
 
+[device_name_overrides]
 "AA:AA:AA:AA:AA:AA" = "Mom's Computer"
 "some device name" = "Printer"
 ```
