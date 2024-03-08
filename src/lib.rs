@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use directories::ProjectDirs;
 use reqwest::Client;
@@ -9,19 +9,63 @@ pub fn get_client() -> Client {
     Client::new()
 }
 
-pub async fn get_attached_devices(client: &Client) -> Result<AttachedDevices, Error> {
-    const PATH: &str = "/ajax/get_attached_devices";
+pub fn find_config_path() -> Result<PathBuf, Error> {
     let config_path = ProjectDirs::from("com", "rfm", "orbi-helper")
         .map(|dirs| dirs.config_dir().join("config.toml"))
         .ok_or_else(|| Error::InvalidConfig("config dir not found".into()))?;
     if !config_path.exists() {
-        return Err(Error::InvalidConfig(format!(
-            "No file exists at {}",
-            config_path.display()
-        )));
+        return Err(Error::MissingConfigFile(config_path));
     }
+    Ok(config_path)
+}
+
+pub async fn read_config() -> Result<Config, Error> {
+    let config_path = find_config_path()?;
     let config = fs::read_to_string(&config_path).await?;
-    let config: Config = toml::from_str(&config)?;
+    Ok(toml::from_str(&config)?)
+}
+
+pub async fn save_config(config: &Config) -> Result<(), Error> {
+    let path = match find_config_path() {
+        Ok(path) => path,
+        Err(Error::MissingConfigFile(path)) => {
+            tokio::fs::create_dir_all(path.parent().unwrap()).await?;
+            path
+        },
+        Err(e) => return Err(e),
+    };
+    let output = toml::to_string_pretty(&config)?;
+    tokio::fs::write(path, output).await?;
+    Ok(())
+}
+
+pub async fn set_config_name_override(key: String, value: Option<String>) -> Result<(), Error> {
+    let mut config = read_config().await.unwrap_or_default();
+    if let Some(new_name) = value {
+        config.device_name_overrides.entry(key).and_modify(|v| {
+            *v = new_name.clone();
+        }).or_insert(new_name);
+    } else {
+        config.device_name_overrides.remove(&key);
+    }
+    save_config(&config).await
+}
+
+pub async fn set_config_username(value: &str) -> Result<(), Error> {
+    let mut config = read_config().await.unwrap_or_default();
+    config.username = value.to_string();
+    save_config(&config).await
+}
+
+pub async fn set_config_password(value: &str) -> Result<(), Error> {
+    let mut config = read_config().await.unwrap_or_default();
+    config.password = value.to_string();
+    save_config(&config).await
+}
+
+pub async fn get_attached_devices(client: &Client) -> Result<AttachedDevices, Error> {
+    const PATH: &str = "/ajax/get_attached_devices";
+    let config = read_config().await?;
     let response_body = client
         .post(&format!("http://orbilogin.com{}", PATH))
         .basic_auth(&config.username, Some(&config.password))
@@ -31,7 +75,6 @@ pub async fn get_attached_devices(client: &Client) -> Result<AttachedDevices, Er
         .text()
         .await
         .unwrap();
-    // eprintln!("{response_body}");
     let mut response: AttachedDevices = serde_json::from_str(&response_body)?;
     for device in response.devices.iter_mut() {
         if let Some(mac_override) = config.device_name_overrides.get(&device.mac) {
@@ -84,7 +127,7 @@ pub struct Device {
     pub voice_reg: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     pub username: String,
     pub password: String,
@@ -95,10 +138,14 @@ pub struct Config {
 pub enum Error {
     #[error("Invalid config: {0}")]
     InvalidConfig(String),
+    #[error("Missing config file expected to be at {0:?}")]
+    MissingConfigFile(PathBuf),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
-    Toml(#[from] toml::de::Error),
+    TomlDe(#[from] toml::de::Error),
+    #[error(transparent)]
+    TomlSer(#[from] toml::ser::Error),
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
     #[error(transparent)]
