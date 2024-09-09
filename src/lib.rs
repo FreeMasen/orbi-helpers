@@ -63,11 +63,11 @@ pub async fn set_config_password(value: &str) -> Result<(), Error> {
     save_config(&config).await
 }
 
-pub async fn get_attached_devices(client: &Client) -> Result<AttachedDevices, Error> {
+pub async fn get_attached_devices(client: &Client, address: &str) -> Result<AttachedDevices, Error> {
     const PATH: &str = "/ajax/get_attached_devices";
     let config = read_config().await?;
     let response_body = client
-        .post(&format!("http://orbilogin.com{}", PATH))
+        .post(&format!("http://{}{}", address, PATH))
         .basic_auth(&config.username, Some(&config.password))
         .header("Content-Length", "0")
         .send()

@@ -16,6 +16,8 @@ enum Commands {
         output_format: OutputFormat,
         #[arg(long, short = 'f')]
         device_fields: Vec<DeviceField>,
+        #[arg(long, default_value = "orbilogin.com")]
+        address: String,
     },
     #[clap(subcommand)]
     Config(ConfigCommands)
@@ -56,7 +58,7 @@ async fn main() {
     env_logger::init();
     let args = Commands::parse();
     match args {
-        Commands::Devices { output_format, device_fields } => devices_main(device_fields, output_format).await,
+        Commands::Devices { output_format, device_fields, address } => devices_main(device_fields, output_format, address).await,
         Commands::Config(command) => config_main(command).await,
     }
 }
@@ -92,10 +94,10 @@ async fn config_main(command: ConfigCommands) {
     }
 }
 
-async fn devices_main(mut device_fields: Vec<DeviceField>,output_format: OutputFormat,) {
+async fn devices_main(mut device_fields: Vec<DeviceField>,output_format: OutputFormat, address: String) {
     let client = orbi_helpers::get_client();
 
-    let json = orbi_helpers::get_attached_devices(&client)
+    let json = orbi_helpers::get_attached_devices(&client, &address)
         .await
         .unwrap();
     if device_fields.is_empty() {
